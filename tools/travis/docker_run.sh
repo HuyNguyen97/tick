@@ -14,9 +14,14 @@ eval "$(pyenv init -)"
 pyenv global ${PYVER}
 pyenv local ${PYVER}
 
-# needed for basemap see https://github.com/matplotlib/basemap/issues/414#issuecomment-436792915
-python -m pip install https://github.com/jswhit/pyproj/archive/v1.9.5.1rel.zip
-python -m pip install https://github.com/matplotlib/basemap/archive/v1.1.0.tar.gz
+if (( PYMAJ == 3 )) && (( PYMIN == 7 )); then
+  echo "Skipping installing only needed for doctest which are not run on Python 3.7 (see bellow)"
+else
+  # needed for basemap see https://github.com/matplotlib/basemap/issues/414#issuecomment-436792915
+  python -m pip install https://github.com/jswhit/pyproj/archive/v1.9.5.1rel.zip
+  python -m pip install https://github.com/matplotlib/basemap/archive/v1.1.0.tar.gz
+fi
+
 python -m pip install yapf --upgrade
 python -m yapf --style tools/code_style/yapf.conf -i tick examples --recursive
 
