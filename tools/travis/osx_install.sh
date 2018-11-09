@@ -53,7 +53,7 @@ else
   brew install geos
 fi
 # needed for basemap see https://github.com/matplotlib/basemap/issues/414#issuecomment-436792915
-python -m pip install https://github.com/jswhit/pyproj/archive/v1.9.5.1rel.zip
-python -m pip install https://github.com/matplotlib/basemap/archive/v1.1.0.tar.gz
+# python -m pip install https://github.com/jswhit/pyproj/archive/v1.9.5.1rel.zip
+python -m pip install https://github.com/matplotlib/basemap/archive/v1.2.0rel.tar.gz
 pyenv rehash
 

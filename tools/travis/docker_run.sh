@@ -14,6 +14,9 @@ eval "$(pyenv init -)"
 pyenv global ${PYVER}
 pyenv local ${PYVER}
 
+PYMAJ=$(python -c "import sys; print(sys.version_info[0])")
+PYMIN=$(python -c "import sys; print(sys.version_info[1])")
+
 if (( PYMAJ == 3 )) && (( PYMIN == 7 )); then
   echo "Skipping installing only needed for doctest which are not run on Python 3.7 (see bellow)"
 else
