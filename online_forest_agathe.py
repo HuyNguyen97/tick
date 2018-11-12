@@ -1,7 +1,9 @@
-from tick.simulation import SimuLogReg, weights_sparse_gauss
+
+from tick.linear_model import SimuLogReg
+from tick.simulation import weights_sparse_gauss
 from sklearn.model_selection import train_test_split
 import numpy as np
-from tick.inference import OnlineForestClassifier
+from tick.online import OnlineForestClassifier
 from matplotlib.colors import ListedColormap
 
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier

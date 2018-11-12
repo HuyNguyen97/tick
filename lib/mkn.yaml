@@ -150,10 +150,10 @@ profile:
 
   - name: online
     parent: arg
-    self: base
+    self: random
     src:
       ./cpp/online
-      ./swig/online
+      ./swig/tick/online
     install: ${lib_path}/online/build
     out: _online${lib_name}
 

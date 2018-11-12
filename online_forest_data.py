@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import pickle as pkl
 
-from tick.inference import OnlineForestRegressor, OnlineForestClassifier
+from tick.online import OnlineForestRegressor, OnlineForestClassifier
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, \
     RandomForestClassifier, ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier

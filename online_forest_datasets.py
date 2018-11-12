@@ -12,7 +12,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
-from tick.inference import OnlineForestClassifier
+from tick.online import OnlineForestClassifier
 
 
 path = '/Users/stephane.gaiffas/Dropbox/jaouad/online-forests/datasets/'

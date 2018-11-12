@@ -5,7 +5,7 @@ from tick.inference.tests.inference import InferenceTest
 
 from sklearn.datasets import make_moons, make_classification, make_circles
 
-from tick.inference import OnlineForestClassifier
+from tick.online import OnlineForestClassifier
 
 
 # Test
