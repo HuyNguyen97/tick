@@ -273,7 +273,7 @@ class OnlineForestClassifier {
   // Step-size used for aggregation
   float _step;
 
-  bool _estimate_feature_importances;
+  // bool _estimate_feature_importances;
 
   // A vector of given feature importances (not estimated)
   ArrayFloat _given_feature_importances;

@@ -328,6 +328,9 @@ OnlineForestRegressor::OnlineForestRegressor(uint32_t n_trees, double step,
   _n_trees = 10;
   _iteration = 0;
   create_trees();
+  if (_verbose) {
+
+  }
   // Seed the random number generators
   seed(_seed);
 }

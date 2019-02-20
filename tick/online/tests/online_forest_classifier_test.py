@@ -1,8 +1,8 @@
 # License: BSD 3 clause
 
 import unittest
-from tick.inference.tests.inference import InferenceTest
-
+import numpy as np
+from tick.base.inference import InferenceTest
 from sklearn.datasets import make_moons, make_classification, make_circles
 
 from tick.online import OnlineForestClassifier
@@ -42,9 +42,9 @@ class Test(InferenceTest):
                                    n_informative=2, random_state=1,
                                    n_clusters_per_class=1)
 
-
     def test_online_forest_n_classes_differs(self):
         pass
+
 
 if __name__ == "__main__":
     unittest.main()

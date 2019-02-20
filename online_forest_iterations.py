@@ -1,6 +1,6 @@
 
 from matplotlib.colors import ListedColormap
-
+import os
 from sklearn.model_selection import train_test_split
 import numpy as np
 from tick.online import OnlineForestClassifier
@@ -71,9 +71,9 @@ for i in range(X_train.shape[0]):
 
 plt.tight_layout()
 
-import os
 
-path = '/Users/stephane.gaiffas/Dropbox/jaouad/papers/mondrian-journal-online/current/'
+
+path = '/Users/stephane.gaiffas/Code/tick'
 plt.savefig(os.path.join(path, 'of_iterations.pdf'))
 
 # plt.show()
