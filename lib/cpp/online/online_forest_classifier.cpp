@@ -283,7 +283,7 @@ TreeClassifier::TreeClassifier(const TreeClassifier &&tree)
 
 void TreeClassifier::fit(const ArrayDouble &x_t, double y_t) {
   uint32_t leaf = go_downwards(x_t, y_t);
-
+  std::cout << "void TreeClassifier::fit(const ArrayDouble &x_t, double y_t)" << std::endl;
   if (use_aggregation()) {
     go_upwards(leaf);
   }
