@@ -282,6 +282,9 @@ TreeClassifier::TreeClassifier(const TreeClassifier &&tree)
     : forest(tree.forest), nodes(tree.nodes) {}
 
 void TreeClassifier::fit(const ArrayDouble &x_t, double y_t) {
+  std::cout << "x_t= [" << x_t[0] << ", " << x_t[1] << "]" << std::endl;
+  std::cout << "y_t= " << y_t << std::endl;
+
   uint32_t leaf = go_downwards(x_t, y_t);
   std::cout << "void TreeClassifier::fit(const ArrayDouble &x_t, double y_t)" << std::endl;
   if (use_aggregation()) {
@@ -295,6 +298,8 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
   // For each node on the path, we consider the possibility of splitting it,
   // following the Mondrian process definition.
   // Index of the root is 0
+
+  std::cout << "uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t)" << std::endl;
   uint32_t index_current_node = 0;
   bool is_leaf = false;
   if (iteration == 0) {
@@ -312,15 +317,15 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
       // If it's not the first iteration (otherwise the current node is root
       // with no range), we consider the possibility of a split
       float split_time = compute_split_time(index_current_node, x_t, y_t);
-      //      std::cout << "iteration: " << iteration;
-      //      std::cout << ", split_time: " << split_time << std::endl;
+      std::cout << "iteration: " << iteration;
+      std::cout << ", split_time: " << split_time << std::endl;
 
       if (split_time > 0) {
         NodeClassifier &current_node = node(index_current_node);
         // We split the current node: because the current node is a leaf, or
-        // because we add a new node along the path std::cout << "current node
-        // before split: " << index_current_node << std::endl;
-        // current_node.print();
+        // because we add a new node along the path
+        std::cout << "current node before split: " << index_current_node << std::endl;
+        current_node.print();
         // Normalize the range extensions to get probabilities
         intensities /= intensities.sum();
         // Sample the feature at random with with a probability proportional to

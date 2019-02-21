@@ -4,8 +4,12 @@ from tick.online import OnlineForestClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.datasets import make_moons
 
+# Utiliser pour compiler la premiere fois
+# LDFLAGS="-L/anaconda3/envs/py36/lib" ./sh/mkn.sh
+# puis utiliser
+# LDFLAGS="-L/anaconda3/envs/py36/lib" ./sh/mkn.sh online
 
-n_samples = 500
+n_samples = 20
 n_features = 2
 n_classes = 2
 
@@ -14,7 +18,7 @@ X, y = make_moons(n_samples=n_samples, noise=0.3, random_state=0)
 X_train, X_test, y_train, y_test = \
     train_test_split(X, y, test_size=.3, random_state=42)
 
-of = OnlineForestClassifier(n_classes=2, n_trees=10)
+of = OnlineForestClassifier(n_classes=2, n_trees=1, use_aggregation=False)
 
 
 of.partial_fit(X_train, y_train)
