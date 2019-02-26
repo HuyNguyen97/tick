@@ -20,6 +20,9 @@ from .build.online import FeatureImportanceType_given
 # TODO: clean the C++ part, optimize a little bit the code (memory allocation)
 # TODO: add a random_state argument to the classifier
 
+# TODO: max_nodes_memorized_range = memory / (8 * n_trees * n_features) where memory is in Bytes
+
+
 class OnlineForestClassifier(ABC, Base):
     """Truly online random forest for regression (continuous labels). BLABLA
 
@@ -67,9 +70,6 @@ class OnlineForestClassifier(ABC, Base):
 
     Attributes
     ----------
-    n_samples : `int`
-        Number of samples seen during training
-
     n_features : int
         The number of features from the training dataset (passed to ``fit``)
     """
@@ -135,8 +135,8 @@ class OnlineForestClassifier(ABC, Base):
             self.dirichlet = dirichlet
 
     def set_data(self, X, y):
-        X = safe_array(X)
-        y = safe_array(y)
+        X = safe_array(X, dtype='float32')
+        y = safe_array(y, dtype='float32')
         self._forest.set_data(X, y)
 
     def partial_fit(self, X, y, classes=None):
@@ -147,8 +147,8 @@ class OnlineForestClassifier(ABC, Base):
         :param classes:
         :return:
         """
-        X = safe_array(X)
-        y = safe_array(y)
+        X = safe_array(X, dtype='float32')
+        y = safe_array(y, dtype='float32')
         n_samples, n_features = X.shape
         # TODO: check that sizes of X and y match
         if self._forest is None:
@@ -199,11 +199,11 @@ class OnlineForestClassifier(ABC, Base):
             Returns predicted values.
         """
         import numpy as np
-        scores = np.empty((X.shape[0], self.n_classes))
+        scores = np.empty((X.shape[0], self.n_classes), dtype='float32')
         if not self._fitted:
             raise RuntimeError("You must call ``fit`` before")
         else:
-            X = safe_array(X)
+            X = safe_array(X, dtype='float32')
         self._forest.predict(X, scores)
         return scores
 
@@ -211,6 +211,7 @@ class OnlineForestClassifier(ABC, Base):
         if not self._fitted:
             raise RuntimeError("You must call ``fit`` before")
         else:
+            X = safe_array(X, dtype='float32')
             scores = self.predict_proba(X)
             return scores.argmax(axis=1)
 
@@ -367,6 +368,7 @@ class OnlineForestClassifier(ABC, Base):
         nodes_features_max = np.empty((n_nodes, self.n_features),
                                       dtype=np.float32)
         nodes_n_samples = np.empty(n_nodes, dtype=np.uint32)
+        nodes_sample = np.empty(n_nodes, dtype=np.uint32)
         nodes_weight = np.empty(n_nodes, dtype=np.float32)
         nodes_weight_tree = np.empty(n_nodes, dtype=np.float32)
         nodes_is_leaf = np.empty(n_nodes, dtype=np.ushort)
@@ -384,6 +386,7 @@ class OnlineForestClassifier(ABC, Base):
             nodes_features_min,
             nodes_features_max,
             nodes_n_samples,
+            nodes_sample,
             nodes_weight,
             nodes_weight_tree,
             nodes_is_leaf,
@@ -391,13 +394,17 @@ class OnlineForestClassifier(ABC, Base):
 
         index = np.arange(n_nodes)
         columns = ['id', 'parent', 'left', 'right', 'depth', 'leaf',
-                   'feature', 'threshold', 'time', 'n_samples']
+                   'feature', 'threshold', 'time', 'n_samples', 'sample',
+                   'features_min', 'features_max']
         data = {'id': index, 'parent': nodes_parent, 'left': nodes_left,
                 'right': nodes_right, 'depth': nodes_depth,
                 'feature': nodes_feature,
                 'threshold': nodes_threshold,
                 'leaf': nodes_is_leaf.astype(np.bool),
-                'time': nodes_time, 'n_samples': nodes_n_samples}
+                'time': nodes_time, 'n_samples': nodes_n_samples,
+                'sample': nodes_sample,
+                'features_min': [tuple(t) for t in nodes_features_min],
+                'features_max': [tuple(t) for t in nodes_features_max]}
         df = pd.DataFrame(data, columns=columns)
         return df
 
@@ -416,6 +423,7 @@ class OnlineForestClassifier(ABC, Base):
         nodes_features_max = np.empty((n_nodes, self.n_features),
                                       dtype=np.float32)
         nodes_n_samples = np.empty(n_nodes, dtype=np.uint32)
+        nodes_sample = np.empty(n_nodes, dtype=np.uint32)
         nodes_weight = np.empty(n_nodes, dtype=np.float32)
         nodes_weight_tree = np.empty(n_nodes, dtype=np.float32)
         nodes_is_leaf = np.empty(n_nodes, dtype=np.ushort)
@@ -433,6 +441,7 @@ class OnlineForestClassifier(ABC, Base):
             nodes_features_min,
             nodes_features_max,
             nodes_n_samples,
+            nodes_sample,
             nodes_weight,
             nodes_weight_tree,
             nodes_is_leaf,
@@ -445,7 +454,8 @@ class OnlineForestClassifier(ABC, Base):
                       'feature': nodes_feature,
                       'threshold': nodes_threshold,
                       'leaf': nodes_is_leaf.astype(np.bool),
-                      'time': nodes_time, 'n_samples': nodes_n_samples}
+                      'time': nodes_time, 'n_samples': nodes_n_samples,
+                      'sample': nodes_sample}
         return nodes_info
 
     def print_tree(self, n_tree):
@@ -473,3 +483,6 @@ class OnlineForestClassifier(ABC, Base):
             print('right:   ', rights[filt])
             print('time:   ', times[filt])
             print('n_samples:   ', n_samples[filt])
+
+    def n_samples(self):
+        return self._forest.n_samples()

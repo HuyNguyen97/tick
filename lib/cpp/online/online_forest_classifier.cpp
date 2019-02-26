@@ -14,6 +14,7 @@ NodeClassifier::NodeClassifier(TreeClassifier &tree, uint32_t parent, float time
       _features_min(tree.n_features()),
       _features_max(tree.n_features()) {
   _counts.fill(0);
+  _samples = std::vector<uint32_t>();
 }
 
 NodeClassifier::NodeClassifier(const NodeClassifier &node)
@@ -32,7 +33,8 @@ NodeClassifier::NodeClassifier(const NodeClassifier &node)
       _time(node._time),
       _counts(node._counts),
       _features_min(node._features_min),
-      _features_max(node._features_max) {}
+      _features_max(node._features_max),
+      _samples(node._samples) {}
 
 NodeClassifier::NodeClassifier(const NodeClassifier &&node) : _tree(node._tree) {
   _parent = node._parent;
@@ -44,6 +46,7 @@ NodeClassifier::NodeClassifier(const NodeClassifier &&node) : _tree(node._tree) 
   _depth = node._depth;
   _features_min = node._features_min;
   _features_max = node._features_max;
+  _samples = node._samples;
   _n_samples = node._n_samples;
   _y_t = node._y_t;
   _weight = node._weight;
@@ -62,6 +65,7 @@ NodeClassifier &NodeClassifier::operator=(const NodeClassifier &node) {
   _depth = node._depth;
   _features_min = node._features_min;
   _features_max = node._features_max;
+  _samples = node._samples;
   _n_samples = node._n_samples;
   _y_t = node._y_t;
   _weight = node._weight;
@@ -71,7 +75,7 @@ NodeClassifier &NodeClassifier::operator=(const NodeClassifier &node) {
   return *this;
 }
 
-void NodeClassifier::update_range(const ArrayDouble &x_t) {
+void NodeClassifier::update_range(const ArrayFloat &x_t) {
   if (_n_samples == 0) {
     for (ulong j = 0; j < n_features(); ++j) {
       float x_tj = static_cast<float>(x_t[j]);
@@ -91,9 +95,12 @@ void NodeClassifier::update_range(const ArrayDouble &x_t) {
   }
 }
 
-void NodeClassifier::update_n_samples() { _n_samples++; }
+void NodeClassifier::update_samples(uint32_t sample) {
+  _samples.emplace_back(sample);
+  _n_samples++;
+}
 
-float NodeClassifier::update_weight(const ArrayDouble &x_t, const double y_t) {
+float NodeClassifier::update_weight(const ArrayFloat &x_t, const float y_t) {
   float loss_t = loss(y_t);
   if (use_aggregation()) {
     _weight -= step() * loss_t;
@@ -103,12 +110,12 @@ float NodeClassifier::update_weight(const ArrayDouble &x_t, const double y_t) {
   return loss_t;
 }
 
-void NodeClassifier::update_count(const double y_t) {
+void NodeClassifier::update_count(const float y_t) {
   // We update the counts for the class y_t
   _counts[static_cast<uint8_t>(y_t)]++;
 }
 
-void NodeClassifier::update_downwards(const ArrayDouble &x_t, const double y_t,
+/*void NodeClassifier::update_downwards(const ArrayFloat &x_t, const float y_t,
                                       bool do_update_weight) {
   update_range(x_t);
   update_n_samples();
@@ -116,7 +123,19 @@ void NodeClassifier::update_downwards(const ArrayDouble &x_t, const double y_t,
     update_weight(x_t, y_t);
   }
   update_count(y_t);
+}*/
+
+void NodeClassifier::update_downwards(uint32_t sample, bool do_update_weight) {
+  const ArrayFloat& x_t = sample_features(sample);
+  float y_t = sample_label(sample);
+  update_range(x_t);
+  update_samples(sample);
+  if (do_update_weight) {
+    update_weight(x_t, y_t);
+  }
+  update_count(y_t);
 }
+
 
 void NodeClassifier::update_weight_tree() {
   if (_is_leaf) {
@@ -126,13 +145,13 @@ void NodeClassifier::update_weight_tree() {
   }
 }
 
-bool NodeClassifier::is_dirac(const double y_t) {
+bool NodeClassifier::is_dirac(const float y_t) {
   // Returns true if the node only has the same label as y_t
   return (_n_samples == _counts[static_cast<uint8_t>(y_t)]);
 }
 
-uint32_t NodeClassifier::get_child(const ArrayDouble &x_t) {
-  if (static_cast<float>(x_t[_feature]) <= _threshold) {
+uint32_t NodeClassifier::get_child(const ArrayFloat &x_t) {
+  if (x_t[_feature] <= _threshold) {
     return _left;
   } else {
     return _right;
@@ -144,7 +163,7 @@ float NodeClassifier::score(uint8_t c) const {
   return (_counts[c] + dirichlet()) / (_n_samples + dirichlet() * n_classes());
 }
 
-void NodeClassifier::compute_range_extension(const ArrayDouble &x_t, ArrayFloat &extensions,
+void NodeClassifier::compute_range_extension(const ArrayFloat &x_t, ArrayFloat &extensions,
                                              float &extensions_sum, float &extensions_max) {
   extensions_sum = 0;
   extensions_max = std::numeric_limits<float>::lowest();
@@ -170,13 +189,13 @@ void NodeClassifier::compute_range_extension(const ArrayDouble &x_t, ArrayFloat 
   }
 }
 
-void NodeClassifier::predict(ArrayDouble &scores) const {
+void NodeClassifier::predict(ArrayFloat &scores) const {
   for (uint8_t c = 0; c < n_classes(); ++c) {
-    scores[c] = static_cast<double>(score(c));
+    scores[c] = score(c);
   }
 }
 
-float NodeClassifier::loss(const double y_t) {
+float NodeClassifier::loss(const float y_t) {
   // Log-loss
   uint8_t c = static_cast<uint8_t>(y_t);
   return -std::log(score(c));
@@ -252,13 +271,26 @@ inline float NodeClassifier::weight() const { return _weight; }
 
 inline float NodeClassifier::weight_tree() const { return _weight_tree; }
 
+inline const ArrayFloat& NodeClassifier::sample_features(uint32_t sample) const {
+  return _tree.sample_features(sample);
+}
+
+inline float NodeClassifier::sample_label(uint32_t sample) const {
+  return _tree.sample_label(sample);
+}
+
 void NodeClassifier::print() {
   std::cout << "Node(parent: " << _parent << ", left: " << _left << ", right: " << _right
             << ", time: " << std::setprecision(2) << _time << ", n_samples: " << _n_samples
-            << ", is_leaf: " << _is_leaf << ", scores: [" << std::setprecision(2) << score(0)
-            << ", " << std::setprecision(2) << score(1) << "]"
-            << ", counts: [" << std::setprecision(2) << _counts[0] << ", " << std::setprecision(2)
-            << _counts[1] << "]";
+            << ", is_leaf: " << _is_leaf
+            // << ", scores: [" << std::setprecision(2) << score(0)
+            // << ", " << std::setprecision(2) << score(1) << "]"
+            // << ", counts: [" << std::setprecision(2) << _counts[0] << ", " << std::setprecision(2)
+            // << _counts[1] << "], "
+            << ", fmin: [" << std::setprecision(2) << features_min(0) << ", "
+            << std::setprecision(2) << features_min(1) << "], "
+            << ", fmax: [" << std::setprecision(2) << features_max(0) << ", "
+            << std::setprecision(2) << features_max(1) << "]";
   std::cout << ")\n";
 }
 
@@ -281,32 +313,47 @@ TreeClassifier::TreeClassifier(const TreeClassifier &tree)
 TreeClassifier::TreeClassifier(const TreeClassifier &&tree)
     : forest(tree.forest), nodes(tree.nodes) {}
 
-void TreeClassifier::fit(const ArrayDouble &x_t, double y_t) {
-  std::cout << "x_t= [" << x_t[0] << ", " << x_t[1] << "]" << std::endl;
-  std::cout << "y_t= " << y_t << std::endl;
+/*void TreeClassifier::fit(const ArrayFloat &x_t, float y_t) {
+  // std::cout << "x_t= [" << x_t[0] << ", " << x_t[1] << "]" << std::endl;
+  // std::cout << "y_t= " << y_t << std::endl;
 
   uint32_t leaf = go_downwards(x_t, y_t);
-  std::cout << "void TreeClassifier::fit(const ArrayDouble &x_t, double y_t)" << std::endl;
+  // std::cout << "void TreeClassifier::fit(const ArrayFloat &x_t, double y_t)" << std::endl;
+  if (use_aggregation()) {
+    go_upwards(leaf);
+  }
+  iteration++;
+}*/
+
+void TreeClassifier::fit(uint32_t sample) {
+  // uint32_t leaf = go_downwards(sample_features(sample), sample_label(sample));
+  uint32_t leaf = go_downwards(sample);
+  // std::cout << "void TreeClassifier::fit(const ArrayFloat &x_t, double y_t)" << std::endl;
   if (use_aggregation()) {
     go_upwards(leaf);
   }
   iteration++;
 }
 
-uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
+
+uint32_t TreeClassifier::go_downwards(uint32_t sample) {
   // We update the nodes along the path which leads to the leaf containing x_t
   // For each node on the path, we consider the possibility of splitting it,
   // following the Mondrian process definition.
   // Index of the root is 0
 
-  std::cout << "uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t)" << std::endl;
+  // std::cout << "uint32_t TreeClassifier::go_downwards(const ArrayFloat &x_t, double y_t)" << std::endl;
   uint32_t index_current_node = 0;
   bool is_leaf = false;
+  const ArrayFloat& x_t = sample_features(sample);
+  // float y_t = sample_label(sample);
+
   if (iteration == 0) {
     // If it's the first iteration, we just put the point in the range of root
     // Let's get the root
     NodeClassifier &current_node = node(0);
-    current_node.update_downwards(x_t, y_t, false);
+    // current_node.update_downwards(x_t, y_t, false);
+    current_node.update_downwards(sample, false);
     // current_node.update_range(x_t);
     // current_node.update_n_samples();
     // And we update the label count of root
@@ -316,16 +363,16 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
     while (true) {
       // If it's not the first iteration (otherwise the current node is root
       // with no range), we consider the possibility of a split
-      float split_time = compute_split_time(index_current_node, x_t, y_t);
-      std::cout << "iteration: " << iteration;
-      std::cout << ", split_time: " << split_time << std::endl;
+      float split_time = compute_split_time(index_current_node, sample);
+      // std::cout << "iteration: " << iteration;
+      // std::cout << ", split_time: " << split_time << std::endl;
 
       if (split_time > 0) {
         NodeClassifier &current_node = node(index_current_node);
         // We split the current node: because the current node is a leaf, or
         // because we add a new node along the path
-        std::cout << "current node before split: " << index_current_node << std::endl;
-        current_node.print();
+        // std::cout << "current node before split: " << index_current_node << std::endl;
+        // current_node.print();
         // Normalize the range extensions to get probabilities
         intensities /= intensities.sum();
         // Sample the feature at random with with a probability proportional to
@@ -345,7 +392,8 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
         // Update the depth of the new childs of the current node
         // Get the current node again, and update it
         NodeClassifier &current_node_again = node(index_current_node);
-        current_node_again.update_downwards(x_t, y_t, true);
+        // current_node_again.update_downwards(x_t, y_t, true);
+        current_node_again.update_downwards(sample, true);
 
         uint32_t left = current_node_again.left();
         uint32_t right = current_node_again.right();
@@ -366,12 +414,14 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
         // current node with the data point)
         NodeClassifier &leaf = node(index_current_node);
         // Let's update the leaf containing the point
-        leaf.update_downwards(x_t, y_t, false);
+        // leaf.update_downwards(x_t, y_t, false);
+        leaf.update_downwards(sample, false);
         return index_current_node;
       } else {
         // There is no split, so we just update the node and go to the next one
         NodeClassifier &current_node = node(index_current_node);
-        current_node.update_downwards(x_t, y_t, true);
+        // current_node.update_downwards(x_t, y_t, true);
+        current_node.update_downwards(sample, true);
         is_leaf = current_node.is_leaf();
         if (is_leaf) {
           return index_current_node;
@@ -383,20 +433,22 @@ uint32_t TreeClassifier::go_downwards(const ArrayDouble &x_t, double y_t) {
   }
 }
 
-float TreeClassifier::compute_split_time(uint32_t node_index, const ArrayDouble &x_t,
-                                         const double y_t) {
+
+float TreeClassifier::compute_split_time(uint32_t node_index, uint32_t sample) {
   NodeClassifier &current_node = node(node_index);
+  float y_t = sample_label(sample);
+  // Don't split if the node is pure: all labels are equal to the one of y_t
+  if (!forest.split_pure() && current_node.is_dirac(y_t)) {
+    return 0;
+  }
 
   // Don't split if the number of samples in the node is not large enough
+  /*
   uint32_t min_samples_split = forest.min_samples_split();
   if ((min_samples_split > 0) && (current_node.n_samples() < min_samples_split)) {
     return 0;
   }
 
-  // Don't split if the node is pure: all labels are equal to the one of y_t
-  if (!forest.split_pure() && current_node.is_dirac(y_t)) {
-    return 0;
-  }
 
   // Get maximum number of nodes allowed in the tree
   uint32_t max_nodes = forest.max_nodes();
@@ -404,9 +456,12 @@ float TreeClassifier::compute_split_time(uint32_t node_index, const ArrayDouble 
   if ((max_nodes > 0) && (_n_nodes >= max_nodes)) {
     return 0;
   }
+  */
 
   // Let's compute the extension of the range of the current node, and its sum
   float extensions_sum, extensions_max;
+
+  const ArrayFloat& x_t = sample_features(sample);
   current_node.compute_range_extension(x_t, intensities, extensions_sum, extensions_max);
   // Get the min extension size
   float min_extension_size = forest.min_extension_size();
@@ -478,7 +533,7 @@ void TreeClassifier::split_node(uint32_t node_index, const float split_time, con
   // std::cout << "Done with TreeClassifier::split_node." << std::endl;
 }
 
-uint32_t TreeClassifier::get_leaf(const ArrayDouble &x_t) {
+uint32_t TreeClassifier::get_leaf(const ArrayFloat &x_t) {
   // Find the index of the leaf that contains the sample. Start at the root.
   // Index of the root is 0
   uint32_t index_current_node = 0;
@@ -501,7 +556,7 @@ uint32_t TreeClassifier::get_leaf(const ArrayDouble &x_t) {
 
 // Given a sample point, return the depth of the leaf corresponding to the point
 // (including root)
-uint32_t TreeClassifier::get_path_depth(const ArrayDouble &x_t) {
+uint32_t TreeClassifier::get_path_depth(const ArrayFloat &x_t) {
   uint32_t index_current_node = node(0).get_child(x_t);
   uint32_t depth = 1;
   while (true) {
@@ -518,7 +573,7 @@ uint32_t TreeClassifier::get_path_depth(const ArrayDouble &x_t) {
 
 // Given a sample point, return the path to the leaf corresponding to the point
 // (not including root)
-void TreeClassifier::get_path(const ArrayDouble &x_t, SArrayUIntPtr path) {
+void TreeClassifier::get_path(const ArrayFloat &x_t, SArrayUIntPtr path) {
   uint32_t index_current_node = node(0).get_child(x_t);
   uint32_t depth = 0;
   while (true) {
@@ -572,7 +627,7 @@ void TreeClassifier::print() {
   std::cout << ")" << std::endl;
 }
 
-void TreeClassifier::predict(const ArrayDouble &x_t, ArrayDouble &scores, bool use_aggregation) {
+void TreeClassifier::predict(const ArrayFloat &x_t, ArrayFloat &scores, bool use_aggregation) {
   uint32_t leaf = get_leaf(x_t);
   if (!use_aggregation) {
     node(leaf).predict(scores);
@@ -580,7 +635,7 @@ void TreeClassifier::predict(const ArrayDouble &x_t, ArrayDouble &scores, bool u
   }
   uint32_t current = leaf;
   // The child of the current node that does not contain the data
-  ArrayDouble pred_new(n_classes());
+  ArrayFloat pred_new(n_classes());
   while (true) {
     NodeClassifier &current_node = node(current);
     if (current_node.is_leaf()) {
@@ -624,6 +679,14 @@ uint32_t TreeClassifier::add_node(uint32_t parent, float time) {
   } else {
     TICK_ERROR("OnlineForest: Something went wrong with nodes allocation !!!")
   }
+}
+
+inline const ArrayFloat& TreeClassifier::sample_features(uint32_t sample) const {
+  return forest.sample_features(sample);
+}
+
+inline float TreeClassifier::sample_label(uint32_t sample) const {
+  return forest.sample_label(sample);
 }
 
 inline uint32_t TreeClassifier::n_features() const { return _n_features; }
@@ -679,7 +742,8 @@ void TreeClassifier::get_flat_nodes(
     SArrayUIntPtr nodes_parent, SArrayUIntPtr nodes_left, SArrayUIntPtr nodes_right,
     SArrayUIntPtr nodes_feature, SArrayFloatPtr nodes_threshold, SArrayFloatPtr nodes_time,
     SArrayUShortPtr nodes_depth, SArrayFloat2dPtr nodes_features_min,
-    SArrayFloat2dPtr nodes_features_max, SArrayUIntPtr nodes_n_samples, SArrayFloatPtr nodes_weight,
+    SArrayFloat2dPtr nodes_features_max, SArrayUIntPtr nodes_n_samples, SArrayUIntPtr nodes_sample,
+    SArrayFloatPtr nodes_weight,
     SArrayFloatPtr nodes_weight_tree, SArrayUShortPtr nodes_is_leaf, SArrayUInt2dPtr nodes_counts) {
   for (uint32_t node_index = 0; node_index < _n_nodes; ++node_index) {
     NodeClassifier &node = nodes[node_index];
@@ -695,6 +759,13 @@ void TreeClassifier::get_flat_nodes(
     (*nodes_weight_tree)[node_index] = node.weight_tree();
     nodes_is_leaf->operator[](node_index) = static_cast<ushort>(node.is_leaf());
     (*nodes_is_leaf)[node_index] = static_cast<ushort>(node.is_leaf());
+
+    ArrayFloat features_min = view_row(*nodes_features_min, node_index);
+    ArrayFloat features_max = view_row(*nodes_features_max, node_index);
+    for(uint32_t j = 0; j < _n_features; ++j) {
+      features_min[j] = node.features_min(j);
+      features_max[j] = node.features_max(j);
+    }
   }
 }
 
@@ -712,7 +783,7 @@ OnlineForestClassifier::OnlineForestClassifier(
     bool use_aggregation, float dirichlet, bool split_pure, int32_t max_nodes,
     float min_extension_size, int32_t min_samples_split, int32_t max_features, int32_t n_threads,
     int seed, bool verbose)
-    : _n_features(n_features),
+    : _n_samples(0), _n_features(n_features),
       _n_classes(n_classes),
       _n_trees(n_trees),
       _step(step),
@@ -730,7 +801,10 @@ OnlineForestClassifier::OnlineForestClassifier(
       rand(seed) {
   // No iteration so far
   _iteration = 0;
+
   create_trees();
+  _samples_features = std::vector<ArrayFloat>();
+  _samples_label = std::vector<float>();
 }
 
 OnlineForestClassifier::~OnlineForestClassifier() {}
@@ -745,45 +819,65 @@ void OnlineForestClassifier::create_trees() {
   }
 }
 
-void OnlineForestClassifier::fit(const SArrayDouble2dPtr features, const SArrayDoublePtr labels) {
-  uint32_t n_samples = static_cast<uint32_t>(features->n_rows());
+// features_start: beginning of the features vector to add
+void OnlineForestClassifier::add_sample(float *features_start, float label) {
+  // Copy the features vector of the sample
+  _samples_features.emplace_back(ArrayFloat(_n_features));
+  std::copy(features_start, features_start + _n_features, _samples_features.back().data());
+  // Copy the label
+  _samples_label.emplace_back(label);
+  _n_samples++;
+}
+
+void OnlineForestClassifier::fit(const SArrayFloat2dPtr features, const SArrayFloatPtr labels) {
+  // Number of samples in the given batch
+  uint32_t n_samples_batch = static_cast<uint32_t>(features->n_rows());
   uint32_t n_features = static_cast<uint32_t>(features->n_cols());
-  if (_iteration == 0) {
-    _n_features = n_features;
-  } else {
-    check_n_features(n_features, false);
-  }
+  // Check or initialize number of features
+  check_n_features(n_features, false);
+
+  // Pre-allocate space for the nodes in all them trees
   for (TreeClassifier &tree : trees) {
     // Maximum number of nodes is now the current one + number of samples in
     // this batch
     // TODO: IMPORTANT !!!! are we sure about this ?????
-    // TODO: tree.reserve_nodes(tree.n_nodes() + 2 * n_samples - 1);
-    // tree.reserve_nodes(2 * tree.n_nodes() + 2 * n_samples);
-    if (tree.n_nodes() + 2 * n_samples > tree.n_nodes_reserved()) {
-      tree.reserve_nodes(tree.n_nodes() + 2 * n_samples);
+    // TODO: tree.reserve_nodes(tree.n_nodes() + 2 * n_samples_batch - 1);
+    // tree.reserve_nodes(2 * tree.n_nodes() + 2 * n_samples_batch);
+    if (tree.n_nodes() + 2 * n_samples_batch > tree.n_nodes_reserved()) {
+      tree.reserve_nodes(tree.n_nodes() + 2 * n_samples_batch);
     }
-    for (uint32_t i = 0; i < n_samples; ++i) {
-      double label = (*labels)[i];
-      check_label(label);
-      tree.fit(view_row(*features, i), (*labels)[i]);
-      _iteration++;
+  }
+
+  for (uint32_t i = 0; i < n_samples_batch; ++i) {
+    // Get pointer to the beginning of the ith features vector
+    ArrayFloat features_i = view_row(*features, i);
+    float *features_start = features_i.data();
+    // Get the label of the ith sample and check it
+    float label = (*labels)[i];
+    check_label(label);
+    // We add this sample (features, label) pair to the forest
+    add_sample(features_start, label);
+    // Fit the trees using this sample
+    for (TreeClassifier &tree : trees) {
+      tree.fit(last_sample());
     }
+    _iteration++;
   }
 }
 
-void OnlineForestClassifier::predict(const SArrayDouble2dPtr features, SArrayDouble2dPtr scores) {
+void OnlineForestClassifier::predict(const SArrayFloat2dPtr features, SArrayFloat2dPtr scores) {
   scores->fill(0.);
   uint32_t n_features = static_cast<uint32_t>(features->n_cols());
   check_n_features(n_features, true);
   if (_iteration > 0) {
     uint32_t n_samples = static_cast<uint32_t>(features->n_rows());
-    ArrayDouble scores_tree(_n_classes);
+    ArrayFloat scores_tree(_n_classes);
     scores_tree.fill(0.);
-    ArrayDouble scores_forest(_n_classes);
+    ArrayFloat scores_forest(_n_classes);
     scores_forest.fill(0.);
     for (uint32_t i = 0; i < n_samples; ++i) {
       // The prediction is simply the average of the predictions
-      ArrayDouble scores_i = view_row(*scores, i);
+      ArrayFloat scores_i = view_row(*scores, i);
       for (TreeClassifier &tree : trees) {
         tree.predict(view_row(*features, i), scores_tree, _use_aggregation);
         // TODO: use a .incr method instead ??
@@ -798,7 +892,10 @@ void OnlineForestClassifier::predict(const SArrayDouble2dPtr features, SArrayDou
 
 void OnlineForestClassifier::clear() {
   create_trees();
+  _samples_features.clear();
+  _samples_label.clear();
   _iteration = 0;
+  _n_samples = 0;
 }
 
 void OnlineForestClassifier::print() {
@@ -859,23 +956,35 @@ OnlineForestClassifier &OnlineForestClassifier::step(const float step) {
 }
 
 uint32_t OnlineForestClassifier::n_samples() const {
-  if (_iteration > 0) {
-    return _iteration;
+  return _n_samples;
+}
+
+uint32_t OnlineForestClassifier::n_features() const {
+  return _n_features;
+}
+
+uint32_t OnlineForestClassifier::last_sample() const {
+  // TODO: raise error is _n_sample
+  if (_n_samples >= 1) {
+    return _n_samples - 1;
   } else {
-    TICK_ERROR("You must call ``fit`` before asking for ``n_samples``.")
+    TICK_ERROR("No last() sample in the forest: none have been inserted!");
   }
 }
 
-uint32_t OnlineForestClassifier::n_features() const { return _n_features; }
-void OnlineForestClassifier::check_n_features(uint32_t n_features, bool predict) const {
-  if (n_features != _n_features) {
-    if (predict) {
-      TICK_ERROR("Wrong number of features: trained with " + std::to_string(_n_features) +
-                 " features, but received " + std::to_string(n_features) +
-                 " features for prediction");
-    } else {
-      TICK_ERROR("Wrong number of features: started to train with " + std::to_string(_n_features) +
-                 " features, but received " + std::to_string(n_features) + " afterwards");
+void OnlineForestClassifier::check_n_features(uint32_t n_features, bool predict) {
+  if (_iteration == 0) {
+    _n_features = n_features;
+  } else {
+    if (n_features != _n_features) {
+      if (predict) {
+        TICK_ERROR("Wrong number of features: trained with " + std::to_string(_n_features) +
+            " features, but received " + std::to_string(n_features) +
+            " features for prediction");
+      } else {
+        TICK_ERROR("Wrong number of features: started to train with " + std::to_string(_n_features) +
+            " features, but received " + std::to_string(n_features) + " afterwards");
+      }
     }
   }
 }
@@ -898,8 +1007,8 @@ uint8_t OnlineForestClassifier::n_classes() const { return _n_classes; }
 
 uint8_t OnlineForestClassifier::n_trees() const { return _n_trees; }
 
-double OnlineForestClassifier::given_feature_importances(const ulong j) const {
-  return static_cast<double>(_given_feature_importances[j]);
+float OnlineForestClassifier::given_feature_importances(const ulong j) const {
+  return _given_feature_importances[j];
 }
 
 int32_t OnlineForestClassifier::n_threads() const { return _n_threads; }
@@ -907,6 +1016,7 @@ int32_t OnlineForestClassifier::n_threads() const { return _n_threads; }
 CriterionClassifier OnlineForestClassifier::criterion() const { return _criterion; }
 
 int OnlineForestClassifier::seed() const { return _seed; }
+
 OnlineForestClassifier &OnlineForestClassifier::seed(int seed) {
   _seed = seed;
   rand.reseed(seed);
@@ -928,7 +1038,7 @@ FeatureImportanceType OnlineForestClassifier::feature_importance_type() const {
 }
 
 OnlineForestClassifier &OnlineForestClassifier::given_feature_importances(
-    const ArrayDouble &feature_importances) {
+    const ArrayFloat &feature_importances) {
   for (ulong j = 0; j < n_features(); ++j) {
     _given_feature_importances[j] = static_cast<float>(feature_importances[j]);
   }
@@ -953,7 +1063,25 @@ int32_t OnlineForestClassifier::min_samples_split() const { return _min_samples_
 
 int32_t OnlineForestClassifier::max_features() const { return _max_features; }
 
-void OnlineForestClassifier::get_feature_importances(SArrayDoublePtr feature_importances) {
+const ArrayFloat& OnlineForestClassifier::sample_features(uint32_t sample) const {
+  if (sample >= _n_samples) {
+    TICK_ERROR("Asking for sample " + std::to_string(sample) + " but I have only seen "
+                   + std::to_string(_n_samples) + " samples so far");
+  } else {
+    return _samples_features[sample];
+  }
+}
+
+float OnlineForestClassifier::sample_label(uint32_t sample) const {
+  if (sample >= _n_samples) {
+    TICK_ERROR("Asking for sample " + std::to_string(sample) + " but I have only seen "
+                   + std::to_string(_n_samples) + " samples so far");
+  } else {
+    return _samples_label[sample];
+  }
+}
+
+void OnlineForestClassifier::get_feature_importances(SArrayFloatPtr feature_importances) {
   if (_feature_importance_type == FeatureImportanceType::estimated) {
     const float a = static_cast<float>(1) / n_trees();
     ArrayFloat importances(_n_features);
@@ -963,23 +1091,23 @@ void OnlineForestClassifier::get_feature_importances(SArrayDoublePtr feature_imp
     }
     importances /= (importances.sum());
     for (ulong j = 0; j < _n_features; ++j) {
-      (*feature_importances)[j] = static_cast<double>(importances[j]);
+      (*feature_importances)[j] = importances[j];
     }
   } else {
     if (_feature_importance_type == FeatureImportanceType::given) {
       for (ulong j = 0; j < _n_features; ++j) {
-        (*feature_importances)[j] = static_cast<double>(_given_feature_importances[j]);
+        (*feature_importances)[j] = _given_feature_importances[j];
       }
     }
   }
 }
 
-uint32_t OnlineForestClassifier::get_path_depth(const uint8_t tree, const SArrayDoublePtr x_t) {
+uint32_t OnlineForestClassifier::get_path_depth(const uint8_t tree, const SArrayFloatPtr x_t) {
   return trees[tree].get_path_depth(*x_t);
 }
 
 // Get the path of x_t
-void OnlineForestClassifier::get_path(const uint8_t tree, const SArrayDoublePtr x_t,
+void OnlineForestClassifier::get_path(const uint8_t tree, const SArrayFloatPtr x_t,
                                       SArrayUIntPtr path) {
   trees[tree].get_path(*x_t, path);
 }
@@ -988,10 +1116,11 @@ void OnlineForestClassifier::get_flat_nodes(
     uint8_t tree, SArrayUIntPtr nodes_parent, SArrayUIntPtr nodes_left, SArrayUIntPtr nodes_right,
     SArrayUIntPtr nodes_feature, SArrayFloatPtr nodes_threshold, SArrayFloatPtr nodes_time,
     SArrayUShortPtr nodes_depth, SArrayFloat2dPtr nodes_features_min,
-    SArrayFloat2dPtr nodes_features_max, SArrayUIntPtr nodes_n_samples, SArrayFloatPtr nodes_weight,
+    SArrayFloat2dPtr nodes_features_max, SArrayUIntPtr nodes_n_samples, SArrayUIntPtr nodes_sample,
+    SArrayFloatPtr nodes_weight,
     SArrayFloatPtr nodes_weight_tree, SArrayUShortPtr nodes_is_leaf, SArrayUInt2dPtr nodes_counts) {
   trees[tree].get_flat_nodes(nodes_parent, nodes_left, nodes_right, nodes_feature, nodes_threshold,
                              nodes_time, nodes_depth, nodes_features_min, nodes_features_max,
-                             nodes_n_samples, nodes_weight, nodes_weight_tree, nodes_is_leaf,
+                             nodes_n_samples, nodes_sample, nodes_weight, nodes_weight_tree, nodes_is_leaf,
                              nodes_counts);
 }

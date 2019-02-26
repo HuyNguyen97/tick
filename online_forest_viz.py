@@ -1,3 +1,8 @@
+
+
+# bokeh serve --show --port=5007 online_forest_viz.py &
+
+
 import numpy as np
 import pandas as pd
 
@@ -43,6 +48,10 @@ xx, yy = np.meshgrid(np.linspace(0, 1, 100), np.linspace(0, 1, 100))
 
 def get_tree(of):
     df = of.get_nodes_df(0)
+    df['min_x'] = df['features_min'].apply(lambda t: t[0])
+    df['min_y'] = df['features_min'].apply(lambda t: t[1])
+    df['max_x'] = df['features_max'].apply(lambda t: t[0])
+    df['max_y'] = df['features_max'].apply(lambda t: t[1])
     df.sort_values(by=['depth', 'parent', 'id'], inplace=True)
     # max_depth = df.depth.max()
     max_depth = 10
@@ -138,9 +147,14 @@ hover = HoverTool(
     renderers=[circles],
     tooltips=[
         ("time", "@time"),
+        ("n_samples", "@n_samples"),
         ("threshold", "@threshold"),
         ("feature", "@feature"),
-
+        ("sample", "@sample"),
+        ("min_x", "@min_x{0.00}"),
+        ("min_y", "@min_y{0.00}"),
+        ("max_x", "@max_x{0.00}"),
+        ("max_y", "@max_y{0.00}")
     ]
 )
 

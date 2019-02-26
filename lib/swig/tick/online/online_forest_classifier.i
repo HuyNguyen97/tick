@@ -41,8 +41,8 @@ class OnlineForestClassifier {
                          int seed,
                          bool verbose);
 
-  void fit(const SArrayDouble2dPtr features, const SArrayDoublePtr labels);
-  void predict(const SArrayDouble2dPtr features, SArrayDouble2dPtr predictions);
+  void fit(const SArrayFloat2dPtr features, const SArrayFloatPtr labels);
+  void predict(const SArrayFloat2dPtr features, SArrayFloat2dPtr predictions);
 
   void clear();
 
@@ -73,13 +73,13 @@ class OnlineForestClassifier {
   bool verbose() const;
   OnlineForestClassifier &verbose(bool verbose);
 
-  void get_feature_importances(SArrayDoublePtr feature_importances);
+  void get_feature_importances(SArrayFloatPtr feature_importances);
 
-  OnlineForestClassifier &given_feature_importances(const ArrayDouble &feature_importances);
+  OnlineForestClassifier &given_feature_importances(const ArrayFloat &feature_importances);
 
-  uint32_t get_path_depth(const uint8_t tree, const SArrayDoublePtr x_t);
+  uint32_t get_path_depth(const uint8_t tree, const SArrayFloatPtr x_t);
 
-  void get_path(const uint8_t tree, const SArrayDoublePtr x_t, SArrayUIntPtr path);
+  void get_path(const uint8_t tree, const SArrayFloatPtr x_t, SArrayUIntPtr path);
 
   void get_flat_nodes(
       uint8_t tree,
@@ -93,6 +93,7 @@ class OnlineForestClassifier {
       SArrayFloat2dPtr nodes_features_min,
       SArrayFloat2dPtr nodes_features_max,
       SArrayUIntPtr nodes_n_samples,
+      SArrayUIntPtr nodes_sample,
       SArrayFloatPtr nodes_weight,
       SArrayFloatPtr nodes_weight_tree,
       SArrayUShortPtr nodes_is_leaf,
