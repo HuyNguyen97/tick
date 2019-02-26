@@ -146,6 +146,9 @@ class NodeClassifier {
 
   inline void increment_depth();
 
+  void memorize_range();
+  void forget_range();
+
   inline uint32_t parent() const;
   inline NodeClassifier &parent(uint32_t parent);
   inline uint32_t left() const;
@@ -215,7 +218,7 @@ class TreeClassifier {
 
   void go_upwards(uint32_t leaf_index);
 
-  void split_node(uint32_t node_index, uint32_t sample, const ArrayFloat &intensities);
+  // void split_node(uint32_t node_index, uint32_t sample, const ArrayFloat &intensities);
 
   void update_depth(uint32_t node_index, uint8_t depth);
 

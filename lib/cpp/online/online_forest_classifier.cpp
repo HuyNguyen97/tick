@@ -294,6 +294,16 @@ void NodeClassifier::print() {
   std::cout << ")\n";
 }
 
+
+void NodeClassifier::memorize_range() {
+
+}
+
+void NodeClassifier::forget_range() {
+
+}
+
+
 /*********************************************************************************
  * TreeClassifier methods
  *********************************************************************************/
