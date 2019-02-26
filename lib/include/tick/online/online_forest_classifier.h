@@ -79,8 +79,8 @@ class NodeClassifier {
   ArrayUInt _counts;
 
   // Range of the features
-  std::shared_ptr<ArrayFloat> _features_min;
-  std::shared_ptr<ArrayFloat> _features_max;
+  std::vector<float> _features_min;
+  std::vector<float> _features_max;
   // List of the samples contained in the range of the node
   // (this allows to compute the range whenever the range memory is note used)
   std::vector<uint32_t> _samples;

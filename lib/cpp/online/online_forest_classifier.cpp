@@ -13,8 +13,8 @@ NodeClassifier::NodeClassifier(TreeClassifier &tree, uint32_t parent, float time
       _counts(tree.n_classes()) {
   _counts.fill(0);
   _samples = std::vector<uint32_t>();
-  _features_min = std::make_shared<ArrayFloat>(n_features());
-  _features_max = std::make_shared<ArrayFloat>(n_features());
+  _features_min = std::vector<float>(n_features());
+  _features_max = std::vector<float>(n_features());
 }
 
 NodeClassifier::NodeClassifier(const NodeClassifier &node)
@@ -36,7 +36,8 @@ NodeClassifier::NodeClassifier(const NodeClassifier &node)
       _features_max(node._features_max),
       _samples(node._samples) {}
 
-NodeClassifier::NodeClassifier(const NodeClassifier &&node) : _tree(node._tree) {
+NodeClassifier::NodeClassifier(const NodeClassifier &&node)
+    : _tree(node._tree) {
   _parent = node._parent;
   _left = node._left;
   _right = node._right;
@@ -79,17 +80,17 @@ void NodeClassifier::update_range(const ArrayFloat &x_t) {
   if (_n_samples == 0) {
     for (ulong j = 0; j < n_features(); ++j) {
       float x_tj = static_cast<float>(x_t[j]);
-      (*_features_min)[j] = x_tj;
-      (*_features_max)[j] = x_tj;
+      _features_min[j] = x_tj;
+      _features_max[j] = x_tj;
     }
   } else {
     for (ulong j = 0; j < n_features(); ++j) {
       float x_tj = static_cast<float>(x_t[j]);
-      if (x_tj < (*_features_min)[j]) {
-        (*_features_min)[j] = x_tj;
+      if (x_tj < _features_min[j]) {
+        _features_min[j] = x_tj;
       }
-      if (x_tj > (*_features_max)[j]) {
-        (*_features_max)[j] = x_tj;
+      if (x_tj > _features_max[j]) {
+        _features_max[j] = x_tj;
       }
     }
   }
@@ -169,8 +170,8 @@ void NodeClassifier::compute_range_extension(const ArrayFloat &x_t, ArrayFloat &
   extensions_max = std::numeric_limits<float>::lowest();
   for (uint32_t j = 0; j < n_features(); ++j) {
     float x_tj = static_cast<float>(x_t[j]);
-    float feature_min_j = (*_features_min)[j];
-    float feature_max_j = (*_features_max)[j];
+    float feature_min_j = _features_min[j];
+    float feature_max_j = _features_max[j];
     float diff;
     if (x_tj < feature_min_j) {
       diff = feature_min_j - x_tj;
@@ -259,9 +260,9 @@ inline NodeClassifier &NodeClassifier::depth(uint8_t depth) {
   return *this;
 }
 
-inline float NodeClassifier::features_min(const uint32_t j) const { return (*_features_min)[j]; }
+inline float NodeClassifier::features_min(const uint32_t j) const { return _features_min[j]; }
 
-inline float NodeClassifier::features_max(const uint32_t j) const { return (*_features_max)[j]; }
+inline float NodeClassifier::features_max(const uint32_t j) const { return _features_max[j]; }
 
 inline uint32_t NodeClassifier::n_samples() const { return _n_samples; }
 
