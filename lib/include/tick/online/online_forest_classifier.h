@@ -78,17 +78,19 @@ class NodeClassifier {
   // Counts the number of sample seen in each class
   ArrayUInt _counts;
 
-  // Range of the features
-  std::vector<float> _features_min;
-  std::vector<float> _features_max;
+  // Memory for the range of features
+  std::vector<float> _memory_range_min;
+  std::vector<float> _memory_range_max;
   // List of the samples contained in the range of the node
   // (this allows to compute the range whenever the range memory is note used)
   std::vector<uint32_t> _samples;
 
+  bool _is_range_memorized;
+
   // Update range of the seen features
-  void update_range(const ArrayFloat &x_t);
+  // void update_range(const ArrayFloat &x_t);
   // Update n_samples
-  void update_samples(uint32_t sample);
+  // void update_samples(uint32_t sample);
   // Update to apply to a node when going forward in the tree (towards leaves)
   float update_weight(const ArrayFloat &x_t, const float y_t);
   // Update the prediction of the label
@@ -148,6 +150,7 @@ class NodeClassifier {
 
   inline void increment_depth();
 
+  std::pair<float, float> range(uint32_t j) const;
   void memorize_range();
   void forget_range();
 
@@ -167,8 +170,8 @@ class NodeClassifier {
   inline NodeClassifier &time(float time);
   inline uint8_t depth() const;
   inline NodeClassifier &depth(uint8_t depth);
-  inline float features_min(const uint32_t j) const;
-  inline float features_max(const uint32_t j) const;
+  // inline float features_min(const uint32_t j) const;
+  // inline float features_max(const uint32_t j) const;
   inline uint32_t n_samples() const;
   inline bool use_aggregation() const;
   inline float weight() const;
