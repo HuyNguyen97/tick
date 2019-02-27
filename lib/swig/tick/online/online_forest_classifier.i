@@ -39,7 +39,8 @@ class OnlineForestClassifier {
                          int32_t max_features,
                          int32_t n_threads,
                          int seed,
-                         bool verbose);
+                         bool verbose,
+                         uint32_t max_nodes_with_memory);
 
   void fit(const SArrayFloat2dPtr features, const SArrayFloatPtr labels);
   void predict(const SArrayFloat2dPtr features, SArrayFloat2dPtr predictions);

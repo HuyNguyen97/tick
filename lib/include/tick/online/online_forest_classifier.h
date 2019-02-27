@@ -24,12 +24,7 @@
 
 
 // TODOs 2019 / 02 / 26
-// TODO: list of samples always in node
 // TODO: features_min and max allocated only if necessary
-// TODO: is_range_memorized in nodes
-// TODO: memorize_range() and forget_range() in a node
-// TODO: node copy must be changed accordingly
-// TODO: A leave must never use memory
 // TODO: a tree must know how to add_node_memorized_range() a tree must now the latest node with memory
 // TODO: a tree must have a max_nodes_memorized_range and a n_nodes_memorized_range
 
@@ -237,7 +232,7 @@ class TreeClassifier {
   // Reserve nodes in the tree in advance
   void reserve_nodes(uint32_t n_nodes);
 
-  void fit(const ArrayFloat &x_t, float y_t);
+  // void fit(const ArrayFloat &x_t, float y_t);
   void fit(uint32_t sample);
 
   void predict(const ArrayFloat &x_t, ArrayFloat &scores, bool use_aggregation);
@@ -272,6 +267,8 @@ class TreeClassifier {
   NodeClassifier &node(uint32_t index) { return nodes[index]; }
 
   inline ArrayFloat &feature_importances() { return feature_importances_; }
+
+  inline uint32_t max_nodes_with_memory() const;
 
   static void show_vector(const ArrayFloat x, int precision = 2) {
     std::cout << "[";
@@ -343,6 +340,7 @@ class OnlineForestClassifier {
   // The list of labels seen during training
   std::vector<float> _samples_label;
 
+  uint32_t _max_nodes_with_memory;
   // Random number generator for feature and threshold sampling
   Rand rand;
 
@@ -360,7 +358,7 @@ class OnlineForestClassifier {
                          FeatureImportanceType feature_importance_type, bool use_aggregation,
                          float dirichlet, bool split_pure, int32_t max_nodes,
                          float min_extension_size, int32_t min_samples_split, int32_t max_features,
-                         int32_t n_threads, int seed, bool verbose);
+                         int32_t n_threads, int seed, bool verbose, uint32_t max_nodes_with_memory);
   virtual ~OnlineForestClassifier();
 
   void fit(const SArrayFloat2dPtr features, const SArrayFloatPtr labels);
@@ -388,7 +386,7 @@ class OnlineForestClassifier {
   float min_extension_size() const;
   int32_t min_samples_split() const;
   int32_t max_features() const;
-
+  uint32_t max_nodes_with_memory() const;
   float dirichlet() const;
   OnlineForestClassifier &dirichlet(const float dirichlet);
   bool verbose() const;

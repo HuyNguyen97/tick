@@ -10,7 +10,7 @@ from sklearn.datasets import make_moons
 # LDFLAGS="-L/anaconda3/envs/py36/lib" ./sh/mkn.sh online
 
 n_samples = 10
-n_features = 2
+n_features = 100
 n_classes = 2
 
 X, y = make_moons(n_samples=n_samples, noise=0.3, random_state=0)
@@ -19,8 +19,8 @@ X_train, X_test, y_train, y_test = \
     train_test_split(X, y, test_size=.3, random_state=42)
 
 
-of = OnlineForestClassifier(n_classes=2, n_trees=1, use_aggregation=False,
-                            split_pure=True)
+of = OnlineForestClassifier(n_classes=2, n_trees=10, use_aggregation=False,
+                            split_pure=True, memory=512)
 
 
 of.partial_fit(X, y)

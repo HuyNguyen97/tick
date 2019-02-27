@@ -78,6 +78,7 @@ class OnlineForestClassifier(ABC, Base):
         '_actual_kwargs': {'writable': False},
         '_fitted': {'writable': False},
         '_forest': {'writable': False},
+        '_memory': {'writable': False},
         '_criterion': {'writable': False, 'cpp_setter': 'set_criterion'},
         'n_trees': {'writable': True, 'cpp_setter': 'set_n_trees'},
         'n_threads': {'writable': True, 'cpp_setter': 'set_n_threads'},
@@ -101,7 +102,7 @@ class OnlineForestClassifier(ABC, Base):
                  min_samples_split: int=-1, max_features: int=-1,
                  n_threads: int = 1,
                  use_feature_importances=True, seed: int = -1,
-                 verbose: bool = True):
+                 verbose: bool = True, memory: int = 512):
         Base.__init__(self)
         if not hasattr(self, "_actual_kwargs"):
             self._actual_kwargs = {}
@@ -134,6 +135,8 @@ class OnlineForestClassifier(ABC, Base):
         else:
             self.dirichlet = dirichlet
 
+        self._set('_memory', memory)
+
     def set_data(self, X, y):
         X = safe_array(X, dtype='float32')
         y = safe_array(y, dtype='float32')
@@ -153,6 +156,10 @@ class OnlineForestClassifier(ABC, Base):
         # TODO: check that sizes of X and y match
         if self._forest is None:
             self.n_features = n_features
+            # print(f"n_features: {n_features}, n_trees: {self.n_trees}")
+            max_nodes_with_memory_in_tree \
+                = int(1024 ** 2 * self.memory / (8 * self.n_trees * n_features))
+
             _forest = _OnlineForestClassifier(
                 n_features,
                 self.n_classes,
@@ -169,7 +176,8 @@ class OnlineForestClassifier(ABC, Base):
                 self.max_features,
                 self.n_threads,
                 self.seed,
-                self.verbose
+                self.verbose,
+                max_nodes_with_memory_in_tree
             )
             if self._feature_importances_type == FeatureImportanceType_given:
                 _forest.set_given_feature_importances(
@@ -242,6 +250,12 @@ class OnlineForestClassifier(ABC, Base):
         n_nodes_reserved_per_tree = np.empty(self.n_trees, dtype=np.uint32)
         self._forest.n_nodes_reserved(n_nodes_reserved_per_tree)
         return n_nodes_reserved_per_tree
+
+    @property
+    def memory(self):
+        return self._memory
+
+    # TODO: no setter for memory
 
     @property
     def criterion(self):

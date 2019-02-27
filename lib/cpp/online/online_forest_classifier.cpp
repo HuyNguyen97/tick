@@ -843,6 +843,8 @@ inline uint32_t TreeClassifier::n_nodes_reserved() const {
   return static_cast<uint32_t>(nodes.size());
 }
 
+inline uint32_t TreeClassifier::max_nodes_with_memory() const { return forest.max_nodes_with_memory(); }
+
 uint32_t TreeClassifier::n_leaves() const {
   uint32_t n_leaves = 0;
   for (uint32_t node_index = 0; node_index < _n_nodes; ++node_index) {
@@ -930,7 +932,7 @@ OnlineForestClassifier::OnlineForestClassifier(
     CriterionClassifier criterion, FeatureImportanceType feature_importance_type,
     bool use_aggregation, float dirichlet, bool split_pure, int32_t max_nodes,
     float min_extension_size, int32_t min_samples_split, int32_t max_features, int32_t n_threads,
-    int seed, bool verbose)
+    int seed, bool verbose, uint32_t max_nodes_with_memory)
     : _n_samples(0), _n_features(n_features),
       _n_classes(n_classes),
       _n_trees(n_trees),
@@ -946,6 +948,7 @@ OnlineForestClassifier::OnlineForestClassifier(
       _max_features(max_features),
       _n_threads(n_threads),
       _verbose(verbose),
+      _max_nodes_with_memory(max_nodes_with_memory),
       rand(seed) {
   // No iteration so far
   _iteration = 0;
@@ -953,6 +956,8 @@ OnlineForestClassifier::OnlineForestClassifier(
   create_trees();
   _samples_features = std::vector<ArrayFloat>();
   _samples_label = std::vector<float>();
+  // std::cout << "OnlineForestClassifier::OnlineForestClassifier" << std::endl;
+  // std::cout << "_max_nodes_with_memory: " << _max_nodes_with_memory << std::endl;
 }
 
 OnlineForestClassifier::~OnlineForestClassifier() {}
@@ -1200,6 +1205,8 @@ OnlineForestClassifier &OnlineForestClassifier::dirichlet(const float dirichlet)
   _dirichlet = dirichlet;
   return *this;
 }
+
+uint32_t OnlineForestClassifier::max_nodes_with_memory() const { return _max_nodes_with_memory; }
 
 bool OnlineForestClassifier::split_pure() const { return _split_pure; }
 
